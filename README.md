@@ -23,11 +23,12 @@ L'utilisateur peut uploader ses propres **fichiers Excel (.xlsx)** ou **Word (.d
 <img width="642" height="185" alt="partieprenante" src="https://github.com/user-attachments/assets/91ecfb6b-7dc3-4fbc-97f3-59d1e5fc433f" />
 
 **Balises intelligentes** : L'utilisateur place des balises ({{**Nom_Tache**}} pour **Excel**, [**Nom_Tache**] pour **Word**) dans ses cellules ou paragraphes.
-Injection sécurisée : Un pont Python (openpyxl et python-docx) lit le fichier, l'IA génère les données, et Python injecte le tout en dupliquant les lignes de tableaux, en incrémentant les formules Excel et en préservant 100% de la mise en forme d'origine (sans jamais corrompre le fichier).
+
+**Injection sécurisée** : Un pont Python (openpyxl et python-docx) lit le fichier, l'IA génère les données, et Python injecte le tout en dupliquant les lignes de tableaux, en incrémentant les formules Excel et en préservant 100% de la mise en forme d'origine (sans jamais corrompre le fichier).
 ### 3. Zéro Hallucination Mathématique
 Pour l'analyse de la Valeur Acquise (EVM) et du Chemin Critique (CPM), l'IA ne fait que fournir les tâches. Ce sont les algorithmes Node.js qui calculent les marges (Forward/Backward Pass), les KPIs (CPI, SPI) et la durée minimale du projet avec une précision absolue.
 
-### 4. Architecture 100% Multi-IA avec Option Privée
+### 4. Architecture 100% Multi-IA avec Option en Privée
 L'application intègre un routeur dynamique permettant à l'utilisateur de choisir son moteur IA en temps réel depuis l'interface (aucun fichier de configuration .env requis) :
 
 Cloud : Google Gemini, OpenAI (GPT-4o), OpenRouter (Claude, Llama, GLM).
