@@ -3,6 +3,8 @@ Application desktop hybride (Electron.js + Node.js + Python) transformant les LL
 
 L'application génère des livrables professionnels au format Excel, Word et PDF, capables de réaliser des calculs mathématiques complexes (Valeur Acquise, Chemin Critique) sans hallucination, et de s'adapter aux modèles de documents existants de l'entreprise.
 
+<img width="852" height="807" alt="interface" src="https://github.com/user-attachments/assets/fb35c7b5-92c4-4415-afd6-39798298c2cb" />
+
 ## 🎯 Le Problème Résolu
 Les LLMs standards (comme ChatGPT) sont incapables de générer des diagrammes de Gantt Excel avec des mises en forme conditionnelles, de calculer un Chemin Critique (CPM) sans erreurs, ou de remplir un modèle Word d'entreprise sans en détruire la mise en page.
 
@@ -17,6 +19,8 @@ L'IA génère des documents complexes avec une mise en page professionnelle int�
 **PDF (.pdf)** : Charte de projet formelle (avec GO/NO GO et signatures), Rapport d'analyse du Chemin Critique (CPM), Rapport d'analyse de la Valeur Acquise (EVM).
 ### 2. Remplissage de modèles existants (Mode Template)
 L'utilisateur peut uploader ses propres **fichiers Excel (.xlsx)** ou **Word (.docx)** contenant son logo, ses couleurs et ses formules complexes.
+
+<img width="642" height="185" alt="partieprenante" src="https://github.com/user-attachments/assets/91ecfb6b-7dc3-4fbc-97f3-59d1e5fc433f" />
 
 **Balises intelligentes** : L'utilisateur place des balises ({{**Nom_Tache**}} pour **Excel**, [**Nom_Tache**] pour **Word**) dans ses cellules ou paragraphes.
 Injection sécurisée : Un pont Python (openpyxl et python-docx) lit le fichier, l'IA génère les données, et Python injecte le tout en dupliquant les lignes de tableaux, en incrémentant les formules Excel et en préservant 100% de la mise en forme d'origine (sans jamais corrompre le fichier).
