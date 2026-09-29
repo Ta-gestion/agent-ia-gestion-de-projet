@@ -1,0 +1,49 @@
+{
+  "name": "agent-ia-gestion-de-projet",
+  "version": "1.0.0",
+  "description": "Agent IA de Gestion de Projet",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win",
+    "dev": "nodemon server.js"
+  },
+  "build": {
+    "appId": "com.votreentreprise.agentpm",
+    "productName": "Agent PM IA",
+    "files": [
+      "main.js",
+      "server.js",
+      "app.js",
+      "src/**/*",
+      "public/**/*",
+      "fill_template.py",
+      "node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "venv",
+        "to": "venv"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "icon.ico"
+    }
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "adm-zip": "^0.6.1",
+    "exceljs": "^4.4.0",
+    "express": "^5.2.1",
+    "jsonrepair": "^3.15.0",
+    "multer": "^2.2.0",
+    "openai": "^7.5.0",
+    "pdfkit": "^0.19.1"
+  },
+  "devDependencies": {
+    "electron": "^41.7.1",
+    "electron-builder": "^26.15.3",
+    "nodemon": "^3.1.14"
+  }
+}

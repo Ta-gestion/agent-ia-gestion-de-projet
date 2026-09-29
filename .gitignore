@@ -1,0 +1,30 @@
+# Dépendances
+node_modules/
+venv/
+__pycache__/
+*.pyc
+
+# Fichiers de configuration locale et secrets
+.env
+.vscode/
+.idea/
+
+# Fichiers systèmes (Mac / Windows)
+.DS_Store
+Thumbs.db
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Builds et exécutables (Electron)
+dist/
+out/
+release/
+*.exe
+*.dll
+*.app
+
+# On ignore le lock de package (Optionnel, mais garde le repo propre)
+package-lock.json
