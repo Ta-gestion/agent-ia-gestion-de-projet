@@ -60,19 +60,19 @@ Prérequis
 Node.js installé.
 Python installé.
 
-### Étapes
+## Étapes
 
-#### 1. Cloner le dépôt :
+### 1. Cloner le dépôt :
 ```
 git clone https://github.com/Ta-gestion/agent-ia-gestion-de-projet.git
 cd agent-ia-gestion-de-projet
 ```
 
-#### 2. Installer les dépendances Node.js :
+### 2. Installer les dépendances Node.js :
 ```
 npm install
 ```
-#### 3. Configurer l'environnement Python :
+### 3. Configurer l'environnement Python :
 ```
 python -m venv venv
 # Windows
@@ -82,9 +82,10 @@ source venv/bin/activate
 
 pip install openpyxl python-docx
 ```
-#### 4. Lancer l'application :
-Mode Web (développement) : ```npm run dev``` (accessible sur ```http://localhost:3000```)
-Mode Application Desktop (Electron) : ```npm start```
+### 4. Lancer l'application :
+**Mode Web (développement)** : ```npm run dev``` (accessible sur ```http://localhost:3000```)
+
+**Mode Application Desktop (Electron)** : ```npm start```
 
 #### 5. Configuration de l'IA :
 Au premier lancement, ouvrez le panneau "Paramètres du Moteur IA" dans l'application, sélectionnez votre fournisseur (Gemini, OpenAI, Ollama, etc.) et entrez votre clé API. Les paramètres sont sauvegardés localement sur votre machine.
