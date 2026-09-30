@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manuel d'Utilisation - Agent IA de Gestion de Projet</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px;
+            background-color: #f9fafb;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border-top: 5px solid #3498db;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            border-bottom: 2px solid #ecf0f1;
+            padding-bottom: 20px;
+            margin-top: 0;
+        }
+        h2 {
+            color: #2980b9;
+            margin-top: 30px;
+            border-left: 4px solid #3498db;
+            padding-left: 10px;
+        }
+        h3 {
+            color: #34495e;
+            margin-top: 25px;
+        }
+        p {
+            margin-bottom: 15px;
+        }
+        ul, ol {
+            margin-bottom: 15px;
+        }
+        li {
+            margin-bottom: 8px;
+        }
+        /* Style pour les blocs de code (balises) */
+        code {
+            background-color: #eef2f7;
+            color: #c7254e;
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-family: Consolas, Monaco, 'Andale Mono', monospace;
+            font-size: 0.9em;
+        }
+        /* Style pour les encadrés d'alerte (Astuces / Attention) */
+        .alert {
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+            border-left: 5px solid;
+        }
+        .alert-info {
+            background-color: #e8f4fd;
+            border-color: #3498db;
+            color: #1c6ea4;
+        }
+        .alert-warning {
+            background-color: #fff8e1;
+            border-color: #ffc107;
+            color: #856404;
+        }
+        .alert-success {
+            background-color: #e8f8f0;
+            border-color: #2ecc71;
+            color: #1a7a45;
+        }
+        /* Emplacement pour les images */
+        .image-placeholder {
+            background-color: #f0f2f5;
+            border: 2px dashed #bdc3c7;
+            text-align: center;
+            padding: 40px;
+            margin: 20px 0;
+            border-radius: 8px;
+            color: #7f8c8d;
+            font-style: italic;
+        }
+        .manuel-img {
+            width: 100%;
+            max-width: 750px;
+            height: auto;
+            display: block;
+            margin: 20px auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            border: 1px solid #e0e0e0;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            font-size: 0.8em;
+            color: #95a5a6;
+            border-top: 1px solid #ecf0f1;
+            padding-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 Manuel d'Utilisation : Agent IA de Gestion de Projet</h1>
+        
+        <p>Bienvenue dans votre nouvel assistant de gestion de projet ! Cette application desktop vous permet de générer des livrables professionnels (Excel, Word, PDF) en exploitant la puissance de l'Intelligence Artificielle, tout en garantissant des calculs mathématiques exacts et le respect de vos modèles de documents d'entreprise.</p>
+
+        <div class="image-placeholder">
+            <img src="images/interface_principal.png" alt="Interface principale de l'application" class="manuel-img">
+        </div>
+
+        <h2>1. Configuration de l'IA (Paramètres)</h2>
+        <p>Avant d'utiliser l'application pour la première fois, vous devez connecter votre moteur d'Intelligence Artificielle. L'application est multi-IA, ce qui signifie que vous pouvez utiliser le fournisseur de votre choix.</p>
+        <ol>
+            <li>Ouvrez l'application et cliquez sur <strong>⚙️ Paramètres du Moteur IA</strong> en haut de l'écran.</li>
+            <li>Sélectionnez votre <strong>Type d'IA</strong> :
+                <ul>
+                    <li><em>Google Gemini, OpenAI, OpenRouter (Cloud)</em> : Nécessite une clé API.</li>
+                    <li><em>Local (Ollama / LM Studio)</em> : Nécessite d'avoir l'application installée sur votre machine (aucune clé API requise, 100% privé).</li>
+                </ul>
+            </li>
+            <li>Renseignez votre <strong>Clé API</strong> (si applicable) et le <strong>Nom du Modèle</strong> (ex: <code>gemini-3.5-flash</code>, <code>gpt-4o</code>, <code>llama3.1</code>).</li>
+            <li>Cliquez sur <strong>Sauvegarder les paramètres</strong>.</li>
+        </ol>
+
+        <div class="image-placeholder">
+            <img src="images/IA-parametres.png" alt="paramtre IA" class="manuel-img">
+        </div>
+
+        <h2>2. Le Mode "Document Standard"</h2>
+        <p>Ce mode vous permet de générer des documents de zéro, avec une mise en page professionnelle intégrée directement dans le système.</p>
+
+        <div class="alert alert-info">
+            <strong>Documents disponibles :</strong>
+            <ul>
+                <li><strong>Excel :</strong> Échéancier de projet (Gantt avec couleurs et jours ouvrés), Registre des risques, Registre des parties prenantes.</li>
+                <li><strong>PDF :</strong> Charte de projet, Rapport d'analyse du Chemin Critique (CPM), Rapport de Valeur Acquise (EVM).</li>
+            </ul>
+        </div>
+
+        <h3>Comment l'utiliser :</h3>
+        <ol>
+            <li>Dans la section <strong>📝 Informations du projet</strong>, décrivez votre projet (Contexte, budget, équipe, dates, etc.).</li>
+            <li>Dans la section <strong>⚙️ Mode de génération</strong>, cliquez sur <strong>📄 Document Standard</strong>.</li>
+            <li>Dans la section <strong>💬 Demande à l'IA</strong>, tapez ce que vous souhaitez générer (ex: <code>Crée l'échéancier de projet avec 10 tâches</code>).</li>
+            <li>Cliquez sur <strong>Exécuter la demande</strong>.</li>
+        </ol>
+
+        <div class="image-placeholder">
+            <img src="images/mode_standard.png" alt="Mode Standard" class="manuel-img">
+        </div>
+
+        <h2>3. Le Mode "Remplir mon modèle"</h2>
+        <p>C'est la fonctionnalité la plus puissante : elle vous permet d'utiliser <strong>vos propres fichiers Excel (.xlsx) ou Word (.docx)</strong> avec votre charte graphique et vos formules complexes.</p>
+
+        <h3>Étape 1 : Préparer votre modèle avec des balises</h3>
+        <p>Dans votre fichier Excel ou Word, vous devez indiquer à l'application où insérer les données en utilisant des <strong>balises</strong>.</p>
+        <ul>
+            <li><strong>Pour un fichier Excel :</strong> Utilisez des accolades.
+                <ul>
+                    <li>Dans une cellule : <code>{{Nom_Projet}}</code></li>
+                    <li>Dans une ligne de tableau (qui sera dupliquée) : <code>{{Nom_Tache}}</code>, <code>{{Duree}}</code>, etc.</li>
+                </ul>
+            </li>
+            <li><strong>Pour un fichier Word :</strong> Utilisez des crochets droits.
+                <ul>
+                    <li>Dans un paragraphe : <code>[Nom_Projet]</code></li>
+                    <li>Dans une ligne de tableau : <code>[Nom_Tache]</code>, <code>[Jalon]</code>, etc.</li>
+                </ul>
+            </li>
+        </ul>
+
+        <div class="image-placeholder">
+            <img src="images/partieprenante.png" alt="fichier modele" class="manuel-img">
+        </div>
+
+        <h3>Étape 2 : Uploader et exécuter</h3>
+        <ol>
+            <li>Dans la section <strong>⚙️ Mode de génération</strong>, cliquez sur <strong>📋 Remplir mon modèle</strong>.</li>
+            <li>Un champ d'upload apparaît. Sélectionnez votre fichier Excel ou Word.</li>
+            <li>Remplissez les <strong>Informations du projet</strong> et votre <strong>Demande à l'IA</strong> (ex: <code>Remplis ce registre de risques avec 5 risques liés au budget</code>).</li>
+            <li>Cliquez sur <strong>Exécuter la demande</strong>.</li>
+        </ol>
+        <p>L'IA va analyser vos balises, générer les données, et un moteur Python injectera le tout dans votre fichier en dupliquant les lignes et en préservant vos couleurs et vos formules !</p>
+
+        <div class="image-placeholder">
+            <img src="images/uploade.png" alt="modele uploade" class="manuel-img">
+        </div>
+
+        <h2>4. Récupération des fichiers générés</h2>
+        <p>Une fois que l'IA a terminé son travail, deux boutons apparaîtront à l'écran :</p>
+        <ul>
+            <li><strong>⬇️ Télécharger :</strong> Sauvegarde le fichier généré dans le dossier de téléchargement de votre navigateur (idéal pour l'envoyer par email ou l'archiver).</li>
+            <li><strong>➡️ Ouvrir :</strong> Ouvre directement le fichier dans votre logiciel par défaut (Excel, Word ou Adobe Reader). C'est l'option idéale pour consulter immédiatement le résultat sans aucune friction.</li>
+        </ul>
+
+        <div class="image-placeholder">
+            <img src="images/fichier_remplis.png" alt="telecharger" class="manuel-img">
+        </div>
+
+        <h2>5. Bonnes pratiques et Astuces</h2>
+        <p>Pour obtenir les meilleurs résultats possibles avec votre Agent IA, voici quelques règles d'or :</p>
+
+        <div class="alert alert-success">
+            <strong>A. Soyez précis dans le contexte</strong><br>
+            L'IA ne connaît que ce que vous lui dites. Plus le bloc <strong>Informations du projet</strong> est complet (budget, équipe, contraintes, dates), plus les livrables seront pertinents.
+        </div>
+
+        <div class="alert alert-warning">
+            <strong>B. Limitez le nombre de lignes pour les modèles locaux</strong><br>
+            Si vous utilisez une IA locale (Ollama) en mode "Remplir mon modèle", évitez de demander "Génère 50 risques". Les petits modèles locaux peuvent perdre le fil sur de trop gros volumes de texte. Demandez plutôt des lots de 5 à 10 lignes.
+        </div>
+
+        <div class="alert alert-warning">
+            <strong>C. Respectez la syntaxe des balises</strong>
+            <ul>
+                <li>N'oubliez pas les doubles accolades pour Excel <code>{{...}}</code> et les crochets pour Word <code>[...]</code>.</li>
+                <li>Évitez les espaces dans le nom des balises (Utilisez <code>{{Nom_Tache}}</code> et non <code>{{Nom Tache}}</code>).</li>
+                <li>N'utilisez pas d'accents dans les noms de balises pour garantir une reconnaissance parfaite (Utilisez <code>{{Date_Fin}}</code> au lieu de <code>{{Date_Fin_Échéance}}</code>).</li>
+            </ul>
+        </div>
+
+        <div class="alert alert-info">
+            <strong>D. Confiez les maths à l'application</strong><br>
+            Ne demandez pas à l'IA de calculer les dates de fin ou les indices de valeur acquise. Demandez-lui simplement de lister les tâches et leurs durées : l'application se chargera de faire les calculs exacts dans le fichier généré !
+        </div>
+
+        <div class="footer">
+            &copy; 2026 Agent IA de Gestion de Projet. Tous droits réservés.<br>
+            Développé en alignement avec les standards du PMBOK (PMP).
+        </div>
+    </div>
+</body>
+</html>
