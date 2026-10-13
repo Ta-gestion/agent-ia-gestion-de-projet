@@ -1,0 +1,26 @@
+name: 🧪 CI - Tests et Validation
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest # GitHub nous prête un petit serveur Linux gratuit
+
+    steps:
+      - name: 📥 Récupération du code
+        uses: actions/checkout@v3
+
+      - name: ⚙️ Configuration de Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: 📦 Installation des dépendances
+        run: npm install
+
+      - name: 🧪 Exécution des tests des Garde-fous
+        run: npm test
