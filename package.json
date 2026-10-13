@@ -6,7 +6,8 @@
   "scripts": {
     "start": "electron .",
     "build": "electron-builder --win",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "test": "node tests/guardrails.test.js"
   },
   "build": {
     "appId": "com.votreentreprise.agentpm",
