@@ -169,9 +169,8 @@
                     return;
                 }
 
-                // MODE TEMPLATE: Envoi via FormData
                 runBtn.disabled = true;
-                status.innerHTML = "⏳ Analyse de votre modèle et génération par l'IA...";
+                status.innerHTML = "⏳ Création de la tâche en cours...";
                 filesContainer.innerHTML = '';
 
                 const formData = new FormData();
@@ -181,85 +180,81 @@
                 formData.append('aiSettings', localStorage.getItem('aiSettings') || '{}');
 
                 try {
-                    const response = await fetch('/api/fill-template', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    const data = await response.json();
-                    if (data.error) {
-                        status.innerHTML = `<span class="error">Erreur: ${data.error}</span>`;
-                    } else {
-                        let successMsg = "✅ Modèle rempli avec succès !";
-                        
-                        // Affichage du Compteur FinOps
-                        if (data.usage && data.usage.total > 0) {
-                            successMsg += `<br><small style="color: #7f8c8d;">📊 FinOps : ${data.usage.total} tokens consommés (Input: ${data.usage.prompt} / Output: ${data.usage.completion})</small>`;
+                    const startResponse = await fetch('/api/fill-template', { method: 'POST', body: formData });
+                    const startData = await startResponse.json();
+                    if (startData.error) throw new Error(startData.error);
+                    
+                    const jobId = startData.jobId;
+                    status.innerHTML = `⏳ Tâche #${jobId} en file d'attente...`;
+
+                    const pollInterval = setInterval(async () => {
+                        try {
+                            const statusResponse = await fetch(`/api/status/${jobId}`);
+                            const statusData = await statusResponse.json();
+
+                            if (statusData.status === 'completed') {
+                                clearInterval(pollInterval);
+                                runBtn.disabled = false;
+                                
+                                const data = statusData.data;
+                                let successMsg = "✅ Modèle rempli avec succès !";
+                                if (data.usage && data.usage.total > 0) {
+                                    successMsg += `<br><small style="color: #7f8c8d;">📊 FinOps : ${data.usage.total} tokens consommés</small>`;
+                                }
+                                status.innerHTML = successMsg;
+
+                                data.files.forEach(file => {
+                                    const fileDiv = document.createElement('div');
+                                    fileDiv.style.display = 'flex';
+                                    fileDiv.style.gap = '10px';
+                                    fileDiv.style.marginBottom = '10px';
+                                    
+                                    const commonStyle = `display: flex; align-items: center; justify-content: center; height: 50px; flex: 1; box-sizing: border-box; font-size: 16px; font-weight: bold; color: white; text-decoration: none; border: none; border-radius: 5px; cursor: pointer; margin: 0; padding: 0 15px; font-family: inherit; transition: background 0.3s;`;
+                                    
+                                    const dlLink = document.createElement('a');
+                                    dlLink.href = `data:${file.mimeType};base64,${file.base64}`;
+                                    dlLink.download = file.filename;
+                                    dlLink.innerText = `⬇️ Télécharger`;
+                                    dlLink.style.cssText = commonStyle + `background-color: #3498db;`;
+                                    
+                                    const openBtn = document.createElement('button');
+                                    openBtn.innerText = `➡️ Ouvrir`;
+                                    openBtn.style.cssText = commonStyle + `background-color: #27ae60;`;
+                                    openBtn.onclick = () => openFile(file.path);
+                                    
+                                    fileDiv.appendChild(dlLink);
+                                    fileDiv.appendChild(openBtn);
+                                    filesContainer.appendChild(fileDiv);
+                                });
+
+                            } else if (statusData.status === 'failed') {
+                                clearInterval(pollInterval);
+                                runBtn.disabled = false;
+                                status.innerHTML = `<span class="error">Erreur: ${statusData.error}</span>`;
+                            } else {
+                                const pct = statusData.progress || 0;
+                                status.innerHTML = `⏳ Traitement en cours... <strong>${pct}%</strong>`;
+                            }
+                        } catch (e) {
+                            clearInterval(pollInterval);
+                            status.innerHTML = `<span class="error">Erreur réseau: ${e.message}</span>`;
+                            runBtn.disabled = false;
                         }
-                        
-                        status.innerHTML = successMsg;
-                        data.files.forEach(file => {
-                            const fileDiv = document.createElement('div');
-                            fileDiv.style.display = 'flex';
-                            fileDiv.style.gap = '10px';
-                            fileDiv.style.marginBottom = '10px';
-                            
-                            // Style commun forcé pour les deux boutons (taille parfaite identique)
-                            const commonStyle = `
-                                display: flex; 
-                                align-items: center; 
-                                justify-content: center; 
-                                height: 50px; 
-                                flex: 1; 
-                                box-sizing: border-box; 
-                                font-size: 16px; 
-                                font-weight: bold; 
-                                color: white; 
-                                text-decoration: none; 
-                                border: none; 
-                                border-radius: 5px; 
-                                cursor: pointer; 
-                                margin: 0; 
-                                padding: 0 15px;
-                                font-family: inherit;
-                                transition: background 0.3s;
-                            `;
-                            
-                            // Bouton 1 : Télécharger
-                            const dlLink = document.createElement('a');
-                            dlLink.href = `data:${file.mimeType};base64,${file.base64}`;
-                            dlLink.download = file.filename;
-                            dlLink.innerText = `⬇️ Télécharger`;
-                            dlLink.style.cssText = commonStyle + `background-color: #3498db;`;
-                            dlLink.onmouseenter = () => dlLink.style.backgroundColor = '#2980b9';
-                            dlLink.onmouseleave = () => dlLink.style.backgroundColor = '#3498db';
-                            
-                            // Bouton 2 : Ouvrir
-                            const openBtn = document.createElement('button');
-                            openBtn.innerText = `➡️ Ouvrir`;
-                            openBtn.style.cssText = commonStyle + `background-color: #27ae60;`;
-                            openBtn.onmouseenter = () => openBtn.style.backgroundColor = '#2ecc71';
-                            openBtn.onmouseleave = () => openBtn.style.backgroundColor = '#27ae60';
-                            openBtn.onclick = () => openFile(file.path);
-                            
-                            fileDiv.appendChild(dlLink);
-                            fileDiv.appendChild(openBtn);
-                            filesContainer.appendChild(fileDiv);
-                        });
-                    }
+                    }, 2000);
+
                 } catch (error) {
                     status.innerHTML = `<span class="error">Erreur réseau: ${error.message}</span>`;
-                } finally {
                     runBtn.disabled = false;
                 }
-
             } else {
-                // MODE STANDARD
+                // MODE STANDARD (Avec Job ID et Barre de progression)
                 runBtn.disabled = true;
-                status.innerHTML = "⏳ L'agent IA réfléchit et génère les documents...";
+                status.innerHTML = "⏳ Création de la tâche en cours...";
                 filesContainer.innerHTML = '';
 
                 try {
-                    const response = await fetch('/api/ask', {
+                    // 1. On envoie la demande et on récupère le Job ID
+                    const startResponse = await fetch('/api/ask', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ 
@@ -268,76 +263,77 @@
                             aiSettings: JSON.parse(localStorage.getItem('aiSettings') || '{}')
                         })
                     });
-                    const data = await response.json();
-                    if (data.error) {
-                        status.innerHTML = `<span class="error">Erreur: ${data.error}</span>`;
-                    } else if (data.files && data.files.length > 0) {
-                        let successMsg = "✅ Documents générés avec succès !";
-                        
-                        // Affichage du Compteur FinOps
-                        if (data.usage && data.usage.total > 0) {
-                            successMsg += `<br><small style="color: #7f8c8d;">📊 FinOps : ${data.usage.total} tokens consommés (Input: ${data.usage.prompt} / Output: ${data.usage.completion})</small>`;
+                    const startData = await startResponse.json();
+                    
+                    if (startData.error) throw new Error(startData.error);
+                    
+                    const jobId = startData.jobId;
+                    status.innerHTML = `⏳ Tâche #${jobId} en file d'attente...`;
+
+                    // 2. On interroge le serveur toutes les 2 secondes (Polling)
+                    const pollInterval = setInterval(async () => {
+                        try {
+                            const statusResponse = await fetch(`/api/status/${jobId}`);
+                            const statusData = await statusResponse.json();
+
+                            if (statusData.status === 'completed') {
+                                clearInterval(pollInterval); // On arrête de demander
+                                runBtn.disabled = false;
+                                
+                                const data = statusData.data;
+                                let successMsg = "✅ Documents générés avec succès !";
+                                
+                                if (data.usage && data.usage.total > 0) {
+                                    successMsg += `<br><small style="color: #7f8c8d;">📊 FinOps : ${data.usage.total} tokens consommés (Input: ${data.usage.prompt} / Output: ${data.usage.completion})</small>`;
+                                }
+                                if (data.warnings && data.warnings.length > 0) {
+                                    successMsg += `<br><small style="color: #e67e22;">⚠️ Garde-fous : ${data.warnings.join(' ')}</small>`;
+                                }
+                                status.innerHTML = successMsg;
+
+                                // On affiche les boutons (votre code existant)
+                                data.files.forEach(file => {
+                                    const fileDiv = document.createElement('div');
+                                    fileDiv.style.display = 'flex';
+                                    fileDiv.style.gap = '10px';
+                                    fileDiv.style.marginBottom = '10px';
+                                    
+                                    const commonStyle = `display: flex; align-items: center; justify-content: center; height: 50px; flex: 1; box-sizing: border-box; font-size: 16px; font-weight: bold; color: white; text-decoration: none; border: none; border-radius: 5px; cursor: pointer; margin: 0; padding: 0 15px; font-family: inherit; transition: background 0.3s;`;
+                                    
+                                    const dlLink = document.createElement('a');
+                                    dlLink.href = `data:${file.mimeType};base64,${file.base64}`;
+                                    dlLink.download = file.filename;
+                                    dlLink.innerText = `⬇️ Télécharger`;
+                                    dlLink.style.cssText = commonStyle + `background-color: #3498db;`;
+                                    
+                                    const openBtn = document.createElement('button');
+                                    openBtn.innerText = `➡️ Ouvrir`;
+                                    openBtn.style.cssText = commonStyle + `background-color: #27ae60;`;
+                                    openBtn.onclick = () => openFile(file.path);
+                                    
+                                    fileDiv.appendChild(dlLink);
+                                    fileDiv.appendChild(openBtn);
+                                    filesContainer.appendChild(fileDiv);
+                                });
+
+                            } else if (statusData.status === 'failed') {
+                                clearInterval(pollInterval);
+                                runBtn.disabled = false;
+                                status.innerHTML = `<span class="error">Erreur: ${statusData.error}</span>`;
+                            } else {
+                                // En cours de traitement
+                                const pct = statusData.progress || 0;
+                                status.innerHTML = `⏳ Traitement en cours... <strong>${pct}%</strong>`;
+                            }
+                        } catch (e) {
+                            clearInterval(pollInterval);
+                            status.innerHTML = `<span class="error">Erreur réseau: ${e.message}</span>`;
+                            runBtn.disabled = false;
                         }
-                        
-                        // Affichage des Garde-fous (Corrections automatiques)
-                        if (data.warnings && data.warnings.length > 0) {
-                            successMsg += `<br><small style="color: #e67e22;">⚠️ Garde-fous : ${data.warnings.join(' ')}</small>`;
-                        }
-                        
-                        status.innerHTML = successMsg;
-                        
-                        data.files.forEach(file => {
-                            const fileDiv = document.createElement('div');
-                            fileDiv.style.display = 'flex';
-                            fileDiv.style.gap = '10px';
-                            fileDiv.style.marginBottom = '10px';
-                            
-                            const commonStyle = `
-                                display: flex; 
-                                align-items: center; 
-                                justify-content: center; 
-                                height: 50px; 
-                                flex: 1; 
-                                box-sizing: border-box; 
-                                font-size: 16px; 
-                                font-weight: bold; 
-                                color: white; 
-                                text-decoration: none; 
-                                border: none; 
-                                border-radius: 5px; 
-                                cursor: pointer; 
-                                margin: 0; 
-                                padding: 0 15px;
-                                font-family: inherit;
-                                transition: background 0.3s;
-                            `;
-                            
-                            const dlLink = document.createElement('a');
-                            dlLink.href = `data:${file.mimeType};base64,${file.base64}`;
-                            dlLink.download = file.filename;
-                            dlLink.innerText = `⬇️ Télécharger`;
-                            dlLink.style.cssText = commonStyle + `background-color: #3498db;`;
-                            dlLink.onmouseenter = () => dlLink.style.backgroundColor = '#2980b9';
-                            dlLink.onmouseleave = () => dlLink.style.backgroundColor = '#3498db';
-                            
-                            const openBtn = document.createElement('button');
-                            openBtn.innerText = `➡️ Ouvrir`;
-                            openBtn.style.cssText = commonStyle + `background-color: #27ae60;`;
-                            openBtn.onmouseenter = () => openBtn.style.backgroundColor = '#2ecc71';
-                            openBtn.onmouseleave = () => openBtn.style.backgroundColor = '#27ae60';
-                            openBtn.onclick = () => openFile(file.path);
-                            
-                            fileDiv.appendChild(dlLink);
-                            fileDiv.appendChild(openBtn);
-                            filesContainer.appendChild(fileDiv);
-                        });
-                    } else if (data.text) {
-                        status.innerHTML = "🤖 Réponse de l'IA :";
-                        filesContainer.innerHTML = `<p>${data.text}</p>`;
-                    }
+                    }, 2000); // Toutes les 2 secondes
+
                 } catch (error) {
                     status.innerHTML = `<span class="error">Une erreur réseau s'est produite: ${error.message}</span>`;
-                } finally {
                     runBtn.disabled = false;
                 }
             }

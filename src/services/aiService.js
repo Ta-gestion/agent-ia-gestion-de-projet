@@ -94,7 +94,7 @@ async function getAiFunctionCalls(settings, prompt, aiTools) {
         };
 
         return {
-            calls: toolCalls && toolCalls.length > 0 ? toolCalls.map(tc => ({ name: tc.function.name, args: JSON.parse(tc.function.arguments) })) : [],
+            calls: toolCalls && toolCalls.length > 0 ? toolCalls.map(tc => ({ name: tc.function.name, args: safeJsonParse(tc.function.arguments) })) : [],
             usage: tokenData
         };
     }
