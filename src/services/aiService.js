@@ -49,21 +49,30 @@ async function getAiFunctionCalls(settings, prompt, aiTools) {
     const modelName = model;
 
     if (provider === 'gemini') {
-        // GEMINI : On garde les outils tels quels (avec les MAJUSCULES)
         const genAI = new GoogleGenerativeAI(apiKey);
         const modelInstance = genAI.getGenerativeModel({ model: modelName, tools: aiTools });
         const chat = modelInstance.startChat();
         const result = await chat.sendMessage(prompt);
         const calls = result.response.functionCalls();
-        return calls && calls.length > 0 ? calls.map(c => ({ name: c.name, args: c.args })) : [];
+        
+        // RÉCUPÉRATION DES TOKENS GEMINI
+        const usage = result.response.usageMetadata || {};
+        const tokenData = {
+            prompt: usage.promptTokenCount || 0,
+            completion: usage.candidatesTokenCount || 0,
+            total: usage.totalTokenCount || 0
+        };
+        
+        return {
+            calls: calls && calls.length > 0 ? calls.map(c => ({ name: c.name, args: c.args })) : [],
+            usage: tokenData
+        };
     } else {
         let clientBaseUrl = 'https://api.openai.com/v1';
         if (provider === 'ollama') clientBaseUrl = baseUrl || 'http://localhost:11434/v1';
         if (provider === 'openrouter') clientBaseUrl = 'https://openrouter.ai/api/v1';
 
         const client = new OpenAI({ apiKey: apiKey || "ollama-no-key", baseURL: clientBaseUrl });
-        
-        // OPENAI/OLLAMA : On convertit en minuscules
         const openaiTools = convertGeminiToolsToOpenAI(aiTools);
         
         const response = await client.chat.completions.create({
@@ -75,7 +84,19 @@ async function getAiFunctionCalls(settings, prompt, aiTools) {
         });
 
         const toolCalls = response.choices[0].message.tool_calls;
-        return toolCalls && toolCalls.length > 0 ? toolCalls.map(tc => ({ name: tc.function.name, args: JSON.parse(tc.function.arguments) })) : [];
+        
+        // RÉCUPÉRATION DES TOKENS OPENAI/OLLAMA
+        const usage = response.usage || {};
+        const tokenData = {
+            prompt: usage.prompt_tokens || 0,
+            completion: usage.completion_tokens || 0,
+            total: usage.total_tokens || 0
+        };
+
+        return {
+            calls: toolCalls && toolCalls.length > 0 ? toolCalls.map(tc => ({ name: tc.function.name, args: JSON.parse(tc.function.arguments) })) : [],
+            usage: tokenData
+        };
     }
 }
 
@@ -150,8 +171,17 @@ async function getAiStructuredJson(settings, prompt, jsonSchema) {
             }
         }
         
-        // ON UTILISE LE RÉPARATEUR DE JSON MÊME POUR GEMINI
-        return safeJsonParse(content);
+        const parsedData = safeJsonParse(content);
+        
+        // RÉCUPÉRATION DES TOKENS GEMINI
+        const usage = result.response.usageMetadata || {};
+        const tokenData = {
+            prompt: usage.promptTokenCount || 0,
+            completion: usage.candidatesTokenCount || 0,
+            total: usage.totalTokenCount || 0
+        };
+
+        return { data: parsedData, usage: tokenData };
     } else {
         let clientBaseUrl = 'https://api.openai.com/v1';
         if (provider === 'ollama') clientBaseUrl = baseUrl || 'http://localhost:11434/v1';
@@ -178,9 +208,17 @@ async function getAiStructuredJson(settings, prompt, jsonSchema) {
         });
 
         let content = response.choices[0].message.content;
+        const parsedData = safeJsonParse(content);
         
-        // ON UTILISE LE SAUVETAGE ICI
-        return safeJsonParse(content);
+        // RÉCUPÉRATION DES TOKENS OPENAI/OLLAMA
+        const usage = response.usage || {};
+        const tokenData = {
+            prompt: usage.prompt_tokens || 0,
+            completion: usage.completion_tokens || 0,
+            total: usage.total_tokens || 0
+        };
+
+        return { data: parsedData, usage: tokenData };
     }
 }
 

@@ -189,7 +189,14 @@
                     if (data.error) {
                         status.innerHTML = `<span class="error">Erreur: ${data.error}</span>`;
                     } else {
-                        status.innerHTML = "✅ Modèle rempli avec succès !";
+                        let successMsg = "✅ Modèle rempli avec succès !";
+                        
+                        // Affichage du Compteur FinOps
+                        if (data.usage && data.usage.total > 0) {
+                            successMsg += `<br><small style="color: #7f8c8d;">📊 FinOps : ${data.usage.total} tokens consommés (Input: ${data.usage.prompt} / Output: ${data.usage.completion})</small>`;
+                        }
+                        
+                        status.innerHTML = successMsg;
                         data.files.forEach(file => {
                             const fileDiv = document.createElement('div');
                             fileDiv.style.display = 'flex';
@@ -265,7 +272,20 @@
                     if (data.error) {
                         status.innerHTML = `<span class="error">Erreur: ${data.error}</span>`;
                     } else if (data.files && data.files.length > 0) {
-                        status.innerHTML = "✅ Documents générés avec succès !";
+                        let successMsg = "✅ Documents générés avec succès !";
+                        
+                        // Affichage du Compteur FinOps
+                        if (data.usage && data.usage.total > 0) {
+                            successMsg += `<br><small style="color: #7f8c8d;">📊 FinOps : ${data.usage.total} tokens consommés (Input: ${data.usage.prompt} / Output: ${data.usage.completion})</small>`;
+                        }
+                        
+                        // Affichage des Garde-fous (Corrections automatiques)
+                        if (data.warnings && data.warnings.length > 0) {
+                            successMsg += `<br><small style="color: #e67e22;">⚠️ Garde-fous : ${data.warnings.join(' ')}</small>`;
+                        }
+                        
+                        status.innerHTML = successMsg;
+                        
                         data.files.forEach(file => {
                             const fileDiv = document.createElement('div');
                             fileDiv.style.display = 'flex';

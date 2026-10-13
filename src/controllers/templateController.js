@@ -151,8 +151,8 @@ exports.handleFillTemplate = async (req, res) => {
         3. Les clés de ton JSON doivent être EXACTEMENT les noms des balises. NE LAISSE AUCUN CHAMP VIDE.
         4. Ne modifie JAMAIS l'orthographe des clés.`;
         
-        // APPEL VIA LE SERVICE IA
-        const args = await aiService.getAiStructuredJson(aiSettings, prompt, jsonSchema);
+        // On récupère les données ET les tokens
+        const { data: args, usage } = await aiService.getAiStructuredJson(aiSettings, prompt, jsonSchema);
 
         // SÉCURITÉ
         if (!args || (!args.metadata && !args.rows)) {
@@ -179,7 +179,8 @@ exports.handleFillTemplate = async (req, res) => {
                 base64: finalBuffer.toString('base64'),
                 mimeType: outputMime,
                 path: encodeURIComponent(tempFilePath)
-            }]
+            }],
+            usage: usage // <-- ON AJOUTE LES TOKENS
         });
 
     } catch (error) {
