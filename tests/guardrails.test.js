@@ -1,7 +1,5 @@
-// tests/guardrails.test.js
 // Ce script simule des réponses erronées de l'IA et vérifie que les Garde-fous les corrigent.
 
-// On importe la logique des garde-fous (recopiée ici pour le test d'isolation)
 function validateAndSanitizeArgs(funcName, args) {
     let warnings = [];
     
@@ -14,11 +12,13 @@ function validateAndSanitizeArgs(funcName, args) {
             }
             if (task.pourcentage !== undefined) {
                 let pct = parseFloat(task.pourcentage);
-                if (isNaN(pct)) pct = 0;
-                if (pct > 1) pct = pct / 100; // Si l'IA met 50 au lieu de 0.5
-                if (pct < 0) pct = 0;
-                if (pct > 1) pct = 1; // Max 100%
+                let wasCorrected = false;
+                if (isNaN(pct)) { pct = 0; wasCorrected = true; }
+                if (pct > 1) { pct = pct / 100; wasCorrected = true; }
+                if (pct < 0) { pct = 0; wasCorrected = true; }
+                if (pct > 1) { pct = 1; wasCorrected = true; }
                 task.pourcentage = pct;
+                if (wasCorrected) warnings.push(`Pourcentage corrigé pour la tâche ${i+1}.`);
             }
             if (task.date_debut && task.date_fin) {
                 let d1 = new Date(task.date_debut);
@@ -76,10 +76,10 @@ console.log("➡️ Test 1 : Validation de l'Échéancier (create_schedule)");
 const fakeSchedule = {
     tasks: [
         { 
-            wbs: "0.1", // Erreur: commence par 0
+            wbs: "0.1", 
             date_debut: "2025-03-10", 
-            date_fin: "2025-03-05", // Erreur: fin avant début
-            pourcentage: "150" // Erreur: > 100%
+            date_fin: "2025-03-05",
+            pourcentage: "150" 
         }
     ]
 };
@@ -91,16 +91,16 @@ assert(sTask.date_fin === "2025-03-10", "Schedule : La date de fin a été align
 assert(sTask.pourcentage === 1, "Schedule : Le pourcentage a été plafonné à 1 (100%)");
 assert(scheduleResult.warnings.length === 3, "Schedule : 3 avertissements ont été générés");
 
-console.log(""); // Saut de ligne
+console.log(""); 
 
 // --- TEST 2 : REGISTRE DES RISQUES (Bornes et Calculs) ---
 console.log("➡️ Test 2 : Validation du Registre des Risques (create_risk_register)");
 const fakeRisk = {
     risks: [
         { 
-            probabilite: 8, // Erreur: > 5 (doit devenir 5)
-            impact: 0, // Erreur: < 1 (doit devenir 1)
-            cote_risque: 25 // Erreur: 5 * 1 = 5, pas 25
+            probabilite: 8,
+            impact: 0,
+            cote_risque: 25 
         }
     ]
 };
@@ -119,8 +119,8 @@ console.log("=========================================");
 
 if (testsEchoues > 0) {
     console.error("💥 ÉCHEC DU PIPELINE CI : Au moins un test de Garde-fou a échoué.");
-    process.exit(1); // Code 1 = Échec pour GitHub Actions
+    process.exit(1);
 } else {
     console.log("🎉 SUCCÈS : Tous les tests de Garde-fous sont passés !");
-    process.exit(0); // Code 0 = Succès pour GitHub Actions
+    process.exit(0);
 }
