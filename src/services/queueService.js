@@ -7,16 +7,86 @@ const pdfService = require('./pdfService');
 const { saveAndGetPath } = require('../utils/fileUtils');
 const { fillExcelTemplate } = require('./pythonService');
 const AdmZip = require('adm-zip');
+const crypto = require('crypto');
 
+// Importation du service de Cache Sémantique
+const { searchCache, saveToCache, connectRedis } = require('./cacheService');
+
+// Connexion à Redis (BullMQ)
 const connection = { host: 'localhost', port: 6379 };
 const aiQueue = new Queue('ai-tasks', { connection });
 
+// Initialisation du cache au démarrage
+connectRedis().catch(console.error);
+
+// 1. LE PRÉFIXE COMMUN (Sera mis en cache par l'IA pour optimiser les coûts FinOps)
+const BASE_SYSTEM_PROMPT = `Tu es un expert mondial en gestion de projet, certifié PMP (Project Management Professional) et aligné sur les standards du PMBOK.
+        Analyse les balises requises et adapte STRICTEMENT ta posture selon le type de document détecté :
+        
+        1. S'il s'agit d'un ÉCHÉANCIER / WBS :
+            - Structure le tableau de manière hiérarchique. Tu DOIS impérativement générer les lignes de grandes phases de niveau 1 (ex: WBS = "1", "2") ET leurs sous-tâches associées (ex: WBS = "1.1", "1.2", "2.1").
+            - Sur les lignes de grandes phases (ex: "1"), laisse les colonnes secondaires (Responsable, Dates, Livrables) vides ou non applicables.
+            - Fais progresser les dates de début et de fin de manière chronologique et logique de haut en bas.
+
+        2. S'il s'agit d'un REGISTRE DES RISQUES :
+            - Identifie des risques réels, techniques, opérationnels et humains spécifiquement liés au contexte du projet.
+            - Formule des plans de réponse (Atténuation, Évitement, Transfert, Acceptation) concrets.
+
+        3. S'il s'agit d'un REGISTRE DES PARTIES PRENANTES :
+            - Liste les acteurs clés (Sponsor, Client, Équipe, Fournisseurs, Régulateurs).
+            - Évalue correctement leur niveau d'influence et d'intérêt, et définis des stratégies de communication adaptées.
+
+        4. S'il s'agit d'une CHARTE DE PROJET / LIVRABLE TEXTUEL :
+            - Rédige des descriptions macroscopiques professionnelles, des objectifs SMART et des critères de succès clairs.
+
+        RÈGLES DE CONTENU ABSOLUES ET CRUCIALES :
+        - ANTI-RÉPÉTITION : Chaque ligne du tableau 'rows' doit être TOTALEMENT UNIQUE et apporter une valeur distincte. Les copier-coller ou répétitions de texte d'une ligne à l'autre sont strictement interdits.
+        - CHOIX MULTIPLES : Respecte STRICTEMENT les contraintes de choix imposées pour les colonnes à choix multiples. Tu dois utiliser uniquement les termes exacts fournis dans les listes d'options (enum).
+        
+        Génère entre 15 et 25 lignes de données (pour le tableau 'rows') très détaillées et professionnelles.
+        
+        RÈGLES CRITIQUES DE TAILLE POUR LE JSON (LIRE ATTENTIVEMENT) :
+        1. Ta réponse JSON totale ne doit pas dépasser 4000 tokens. Sois EXTRÊMEMENT concis.
+        2. Pour remplir l'objet "metadata", écris au MAXIMUM 3 phrases par champ. Si le champ demande un contexte, fais un paragraphe de 50 mots maximum. N'écris pas de romans.
+        3. Les clés de ton JSON doivent être EXACTEMENT les noms des balises. NE LAISSE AUCUN CHAMP VIDE.
+        4. Ne modifie JAMAIS l'orthographe des clés.`;
+
 const worker = new Worker('ai-tasks', async (job) => {
+    
+    // --- 1. Préparation de la Compound Key ---
+    const { projectInfo, userQuery, aiSettings } = job.data;
+    
+    // ==========================================
+    // 1. VÉRIFICATION DU CACHE SÉMANTIQUE (Compound Key)
+    // ==========================================
+    // La clé composée garantit l'isolation Multi-Tenant (l'utilisateur B ne voit pas le cache de A)
+    const tenantId = aiSettings.apiKey ? aiSettings.apiKey.slice(-8) : 'local_shared';
+    
+     // 1. On hashe le contexte (Projet + Fichier si template) pour qu'il ne domine pas le vecteur
+    let contextToHash = projectInfo;
+    if (job.name === 'generate-template') {
+        const fileBuffer = Buffer.from(job.data.fileBuffer, 'base64');
+        contextToHash += fileBuffer.toString('hex'); 
+    }
+    const contextHash = crypto.createHash('md5').update(contextToHash).digest('hex');
+
+    // 2. On ne vectorise que la demande de l'utilisateur (l'intention)
+    const cachePrompt = userQuery;
+
+    await job.updateProgress(10);
+
+    // 3. On passe le contextHash au cache au lieu du long texte
+    const cachedResponse = await searchCache(tenantId, contextHash, cachePrompt, aiSettings);
+    if (cachedResponse) {
+        await job.updateProgress(100);
+        return { ...cachedResponse, cacheHit: true };
+    }
+
     // ==========================================
     // CAS 1 : MODE TEMPLATE (Upload de fichier)
     // ==========================================
     if (job.name === 'generate-template') {
-        const { projectInfo, userQuery, aiSettings, isWord } = job.data;
+        const { isWord } = job.data;
         const fileBuffer = Buffer.from(job.data.fileBuffer, 'base64');
         
         await job.updateProgress(20);
@@ -75,92 +145,82 @@ const worker = new Worker('ai-tasks', async (job) => {
             required: ["rows"]
         };
 
-        const prompt = `Tu es un expert mondial en gestion de projet, certifié PMP (Project Management Professional) et aligné sur les standards du PMBOK.
-        Informations du projet : ${projectInfo}.
+        // 4. PROMPTS (Préfixe commun + Suffixe spécifique au Template)
+        const systemPrompt = `${BASE_SYSTEM_PROMPT}
+        MODE TEMPLATE : Remplis l'objet "metadata" avec les infos globales et le tableau "rows" avec les lignes de données. NE LAISSE AUCUN CHAMP VIDE.`;
+
+        const userPrompt = `Informations du projet : ${projectInfo}.
         Demande de l'utilisateur : ${userQuery}.
-
-        Analyse les balises requises et adapte STRICTEMENT ta posture selon le type de document détecté :
+        Balises attendues : ${allTagsArray.join(', ')}.`;
         
-        1. S'il s'agit d'un ÉCHÉANCIER / WBS :
-            - Structure le tableau de manière hiérarchique. Tu DOIS impérativement générer les lignes de grandes phases de niveau 1 (ex: WBS = "1", "2") ET leurs sous-tâches associées (ex: WBS = "1.1", "1.2", "2.1").
-            - Sur les lignes de grandes phases (ex: "1"), laisse les colonnes secondaires (Responsable, Dates, Livrables) vides ou non applicables.
-            - Fais progresser les dates de début et de fin de manière chronologique et logique de haut en bas.
-
-        2. S'il s'agit d'un REGISTRE DES RISQUES :
-            - Identifie des risques réels, techniques, opérationnels et humains spécifiquement liés au contexte du projet.
-            - Formule des plans de réponse (Atténuation, Évitement, Transfert, Acceptation) concrets.
-
-        3. S'il s'agit d'un REGISTRE DES PARTIES PRENANTES :
-            - Liste les acteurs clés (Sponsor, Client, Équipe, Fournisseurs, Régulateurs).
-            - Évalue correctement leur niveau d'influence et d'intérêt, et définis des stratégies de communication adaptées.
-
-        4. S'il s'agit d'une CHARTE DE PROJET / LIVRABLE TEXTUEL :
-            - Rédige des descriptions macroscopiques professionnelles, des objectifs SMART et des critères de succès clairs.
-
-        RÈGLES DE CONTENU ABSOLUES ET CRUCIALES :
-        - ANTI-RÉPÉTITION : Chaque ligne du tableau 'rows' doit être TOTALEMENT UNIQUE et apporter une valeur distincte. Les copier-coller ou répétitions de texte d'une ligne à l'autre sont strictement interdits.
-        - CHOIX MULTIPLES : Respecte STRICTEMENT les contraintes de choix imposées pour les colonnes à choix multiples. Tu dois utiliser uniquement les termes exacts fournis dans les listes d'options (enum).
-        
-        Génère entre 15 et 25 lignes de données (pour le tableau 'rows') très détaillées et professionnelles.
-        
-        RÈGLES CRITIQUES DE TAILLE POUR LE JSON (LIRE ATTENTIVEMENT) :
-        1. Ta réponse JSON totale ne doit pas dépasser 4000 tokens. Sois EXTRÊMEMENT concis.
-        2. Pour remplir l'objet "metadata", écris au MAXIMUM 3 phrases par champ. Si le champ demande un contexte, fais un paragraphe de 50 mots maximum. N'écris pas de romans.
-        3. Les clés de ton JSON doivent être EXACTEMENT les noms des balises. NE LAISSE AUCUN CHAMP VIDE.
-        4. Ne modifie JAMAIS l'orthographe des clés.`;
-
         await job.updateProgress(40);
-        const { data: args, usage } = await aiService.getAiStructuredJson(aiSettings, prompt, jsonSchema);
+        const { data: args, usage } = await aiService.getAiStructuredJson(aiSettings, systemPrompt, userPrompt, jsonSchema);
         
         await job.updateProgress(70);
         const finalBuffer = await fillExcelTemplate(fileBuffer, args, isWord);
         
         await job.updateProgress(90);
         
+        // 1. On définit le nom et le type du fichier
         const outputFilename = isWord ? "document_rempli.docx" : "document_rempli.xlsx";
-        const outputMime = isWord ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        const outputMime = isWord 
+            ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" 
+            : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            
+        // 2. On le sauvegarde sur le disque
         const tempFilePath = saveAndGetPath(finalBuffer, outputFilename);
 
-        return { 
-            files: [{ filename: outputFilename, base64: finalBuffer.toString('base64'), mimeType: outputMime, path: encodeURIComponent(tempFilePath) }],
+        // 3. On prépare le résultat à renvoyer
+        const templateResult = { 
+            files: [{ 
+                filename: outputFilename, 
+                base64: finalBuffer.toString('base64'), 
+                mimeType: outputMime, 
+                path: encodeURIComponent(tempFilePath) 
+            }],
             usage: usage,
             warnings: []
         };
+
+        // 4. ON SAUVEGARDE DANS LE CACHE avec la Compound Key (contextHash + userQuery)
+        await saveToCache(tenantId, contextHash, cachePrompt, templateResult, aiSettings);
+
+        return templateResult;
     }
 
     // ==========================================
-    // CAS 2 : MODE STANDARD (Existait déjà)
+    // CAS 2 : MODE STANDARD
     // ==========================================
-    const { projectInfo, userQuery, aiSettings } = job.data;
+    await job.updateProgress(20);
     
-    await job.updateProgress(20); // Étape 1 : Analyse
-    
-    const prompt = `Tu es un expert mondial en gestion de projet, certifié PMP (Project Management Professional) et aligné sur les standards du PMBOK. 
-    Voici les informations du projet: ${projectInfo}. 
-    Demande de l'utilisateur: ${userQuery}. 
-    Utilise les fonctions à ta disposition pour générer les fichiers demandés.`;
-    
-    const { calls: functionCalls, usage } = await aiService.getAiFunctionCalls(aiSettings, prompt, aiTools);
+    // 1. PROMPTS (Préfixe commun + Suffixe spécifique au Mode Standard)
+    const systemPrompt = `${BASE_SYSTEM_PROMPT}
+    MODE STANDARD : Utilise les fonctions (Tools) à ta disposition pour générer les fichiers demandés.`;
+
+    const userPrompt = `Voici les informations du projet: ${projectInfo}. 
+    Demande de l'utilisateur: ${userQuery}.`;
+
+    const { calls: functionCalls, usage } = await aiService.getAiFunctionCalls(aiSettings, systemPrompt, userPrompt, aiTools);
     
     if (!functionCalls || functionCalls.length === 0) {
         return { files: [], usage, warnings: [], text: "L'IA n'a généré aucun fichier." };
     }
 
-    await job.updateProgress(50); // Étape 2 : Génération IA terminée
+    await job.updateProgress(50);
     const filesToDownload = [];
     let allWarnings = [];
     
     for (const call of functionCalls) {
         const funcName = call.name;
         let args = call.args;
-        let buffer;
         
         // === APPEL DES GARDE-FOUS ===
         const validationResult = validateAndSanitizeArgs(funcName, args);
         args = validationResult.args;
         allWarnings = allWarnings.concat(validationResult.warnings);
+
+        let buffer;
         
-        // === TOUS VOS IF STATEMENTS ICI ===
         if (funcName === "create_risk_register") {
             buffer = await excelService.generateRiskRegisterExcel(args);
             const filePath = saveAndGetPath(buffer, "registre_risque.xlsx");
@@ -223,40 +283,57 @@ const worker = new Worker('ai-tasks', async (job) => {
         }
     }
 
-    await job.updateProgress(90); // Étape 3 : Fichiers générés et Garde-fous appliqués
+    await job.updateProgress(90);
+    
+    // 1. On prépare le résultat à renvoyer
+    const finalResult = { files: filesToDownload, usage, warnings: allWarnings };
 
-    // ON RETOURNE JUSTE LE RÉSULTAT (pas de res.json !)
-    return { files: filesToDownload, usage, warnings: allWarnings };
+    // ==========================================
+    // 2. SAUVEGARDE DANS LE CACHE SÉMANTIQUE
+    // ==========================================
+    // On sauvegarde avec la Compound Key (contextHash + cachePrompt)
+    await saveToCache(tenantId, contextHash, cachePrompt, finalResult, aiSettings);
+
+    return finalResult;
 
 }, { connection });
 
-// Fonction de Garde-fou
+
+// ==========================================
+// FONCTION DE GARDE-FOU (Output Guardrails)
+// ==========================================
 function validateAndSanitizeArgs(funcName, args) {
     let warnings = [];
+    
+    // 1. Validation de l'Échéancier
     if (funcName === "create_schedule" && args.tasks) {
         args.tasks.forEach((task, i) => {
             if (task.wbs && task.wbs.startsWith('0')) {
                 task.wbs = task.wbs.replace(/^0/, '1');
-                warnings.push(`WBS corrigé pour la tâche ${i+1} (commençait par 0).`);
+                warnings.push(`WBS corrigé pour la tâche ${i+1}.`);
             }
             if (task.pourcentage !== undefined) {
                 let pct = parseFloat(task.pourcentage);
-                if (isNaN(pct)) pct = 0;
-                if (pct > 1) pct = pct / 100;
-                if (pct < 0) pct = 0;
-                if (pct > 1) pct = 1;
+                let wasCorrected = false;
+                if (isNaN(pct)) { pct = 0; wasCorrected = true; }
+                if (pct > 1) { pct = pct / 100; wasCorrected = true; }
+                if (pct < 0) { pct = 0; wasCorrected = true; }
+                if (pct > 1) { pct = 1; wasCorrected = true; }
                 task.pourcentage = pct;
+                if (wasCorrected) warnings.push(`Pourcentage corrigé pour la tâche ${i+1}.`);
             }
             if (task.date_debut && task.date_fin) {
                 let d1 = new Date(task.date_debut);
                 let d2 = new Date(task.date_fin);
                 if (d2 < d1) {
                     task.date_fin = task.date_debut;
-                    warnings.push(`Date de fin antérieure au début corrigée pour la tâche ${i+1}.`);
+                    warnings.push(`Date de fin antérieure corrigée pour la tâche ${i+1}.`);
                 }
             }
         });
     }
+    
+    // 2. Validation du Registre de Risques
     if (funcName === "create_risk_register" && args.risks) {
         args.risks.forEach((risk, i) => {
             let p = parseInt(risk.probabilite) || 1;
@@ -272,6 +349,7 @@ function validateAndSanitizeArgs(funcName, args) {
             }
         });
     }
+    
     return { args, warnings };
 }
 

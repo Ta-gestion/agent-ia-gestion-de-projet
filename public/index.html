@@ -198,9 +198,16 @@
                                 
                                 const data = statusData.data;
                                 let successMsg = "✅ Modèle rempli avec succès !";
-                                if (data.usage && data.usage.total > 0) {
-                                    successMsg += `<br><small style="color: #7f8c8d;">📊 FinOps : ${data.usage.total} tokens consommés</small>`;
+                                
+                                // ON VÉRIFIE D'ABORD SI C'EST UN CACHE HIT
+                                if (data.cacheHit) {
+                                    successMsg = "⚡ Modèle rempli depuis le Cache Sémantique (0 token consommé) !";
+                                } else {
+                                    if (data.usage && data.usage.total > 0) {
+                                        successMsg += `<br><small style="color: #7f8c8d;">📊 FinOps : ${data.usage.total} tokens consommés</small>`;
+                                    }
                                 }
+                                
                                 status.innerHTML = successMsg;
 
                                 data.files.forEach(file => {
@@ -277,18 +284,25 @@
                             const statusData = await statusResponse.json();
 
                             if (statusData.status === 'completed') {
-                                clearInterval(pollInterval); // On arrête de demander
+                                clearInterval(pollInterval);
                                 runBtn.disabled = false;
                                 
                                 const data = statusData.data;
                                 let successMsg = "✅ Documents générés avec succès !";
                                 
-                                if (data.usage && data.usage.total > 0) {
-                                    successMsg += `<br><small style="color: #7f8c8d;">📊 FinOps : ${data.usage.total} tokens consommés (Input: ${data.usage.prompt} / Output: ${data.usage.completion})</small>`;
+                                // ON VÉRIFIE D'ABORD SI C'EST UN CACHE HIT
+                                if (data.cacheHit) {
+                                    successMsg = "⚡ Documents générés depuis le Cache Sémantique (0 token consommé) !";
+                                } else {
+                                    // Sinon, on affiche les tokens normaux
+                                    if (data.usage && data.usage.total > 0) {
+                                        successMsg += `<br><small style="color: #7f8c8d;">📊 FinOps : ${data.usage.total} tokens consommés (Input: ${data.usage.prompt} / Output: ${data.usage.completion})</small>`;
+                                    }
+                                    if (data.warnings && data.warnings.length > 0) {
+                                        successMsg += `<br><small style="color: #e67e22;">⚠️ Garde-fous : ${data.warnings.join(' ')}</small>`;
+                                    }
                                 }
-                                if (data.warnings && data.warnings.length > 0) {
-                                    successMsg += `<br><small style="color: #e67e22;">⚠️ Garde-fous : ${data.warnings.join(' ')}</small>`;
-                                }
+                                
                                 status.innerHTML = successMsg;
 
                                 // On affiche les boutons (votre code existant)

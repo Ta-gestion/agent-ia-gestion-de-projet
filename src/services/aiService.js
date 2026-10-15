@@ -43,19 +43,26 @@ function convertGeminiToolsToOpenAI(aiTools) {
 }
 
 // Appelle l'IA (Cloud ou Local) et retourne les appels de fonction standardisés
-async function getAiFunctionCalls(settings, prompt, aiTools) {
+// ==========================================
+// FONCTION 1 : MODE STANDARD (Function Calling)
+// ==========================================
+async function getAiFunctionCalls(settings, systemPrompt, userPrompt, aiTools) {
     const { provider, apiKey, baseUrl, model } = settings;
     if (!model) throw new Error("Le nom du modèle est obligatoire.");
     const modelName = model;
 
     if (provider === 'gemini') {
         const genAI = new GoogleGenerativeAI(apiKey);
-        const modelInstance = genAI.getGenerativeModel({ model: modelName, tools: aiTools });
+        // GEMINI : On utilise systemInstruction pour optimiser le cache
+        const modelInstance = genAI.getGenerativeModel({ 
+            model: modelName, 
+            tools: aiTools,
+            systemInstruction: systemPrompt 
+        });
         const chat = modelInstance.startChat();
-        const result = await chat.sendMessage(prompt);
+        const result = await chat.sendMessage(userPrompt);
         const calls = result.response.functionCalls();
         
-        // RÉCUPÉRATION DES TOKENS GEMINI
         const usage = result.response.usageMetadata || {};
         const tokenData = {
             prompt: usage.promptTokenCount || 0,
@@ -75,17 +82,36 @@ async function getAiFunctionCalls(settings, prompt, aiTools) {
         const client = new OpenAI({ apiKey: apiKey || "ollama-no-key", baseURL: clientBaseUrl });
         const openaiTools = convertGeminiToolsToOpenAI(aiTools);
         
+        // Construction des messages avec cache_control pour le prompt système
+        let messages = [];
+        if (provider === 'openrouter' || provider === 'openai') {
+            // CLOUD : On utilise l'attribut cache_control (OpenAI/Anthropic natif)
+            messages = [
+                { 
+                    role: "system", 
+                    content: [
+                        { type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }
+                    ]
+                },
+                { role: "user", content: userPrompt }
+            ];
+        } else {
+            // LOCAL (Ollama) : Le moteur llama.cpp gère le Prefix KV Cache automatiquement
+            messages = [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userPrompt }
+            ];
+        }
+        
         const response = await client.chat.completions.create({
             model: modelName,
-            messages: [{ role: "user", content: prompt }],
+            messages: messages,
             tools: openaiTools,
             tool_choice: "auto",
             max_tokens: 8000
         });
 
         const toolCalls = response.choices[0].message.tool_calls;
-        
-        // RÉCUPÉRATION DES TOKENS OPENAI/OLLAMA
         const usage = response.usage || {};
         const tokenData = {
             prompt: usage.prompt_tokens || 0,
@@ -142,8 +168,10 @@ function safeJsonParse(content) {
     throw new Error("Aucun JSON valide trouvé dans la réponse de l'IA.");
 }
 
-// Appelle l'IA en mode JSON structuré (pour les templates Excel)
-async function getAiStructuredJson(settings, prompt, jsonSchema) {
+// ==========================================
+// FONCTION 2 : MODE TEMPLATE (JSON Structuré)
+// ==========================================
+async function getAiStructuredJson(settings, systemPrompt, userPrompt, jsonSchema) {
     const { provider, apiKey, baseUrl, model } = settings;
     if (!model) throw new Error("Le nom du modèle est obligatoire.");
     const modelName = model;
@@ -155,25 +183,20 @@ async function getAiStructuredJson(settings, prompt, jsonSchema) {
             generationConfig: {
                 responseMimeType: "application/json",
                 responseSchema: jsonSchema,
-                maxOutputTokens: 8000 // <-- ON LIMITE À 8000 TOKENS
-            }
+                maxOutputTokens: 8000
+            },
+            systemInstruction: systemPrompt 
         });
-        const result = await modelInstance.generateContent(prompt);
+        const result = await modelInstance.generateContent(userPrompt);
         let content = result.response.text();
         
-        // SÉCURITÉ MAX : Si l'IA a généré un JSON de plus de 50 000 caractères, on la stoppe
         if (content.length > 50000) {
-            console.warn("JSON trop massif détecté (" + content.length + " caractères). Tentative de troncation...");
-            // On coupe proprement avant la dernière virgule pour éviter le crash
+            console.warn("JSON trop massif détecté. Tentative de troncation...");
             let lastComma = content.lastIndexOf(',');
-            if (lastComma > 0) {
-                content = content.substring(0, lastComma) + ']}]}'; // On ferme le tableau et les objets
-            }
+            if (lastComma > 0) { content = content.substring(0, lastComma) + ']}]}'; }
         }
         
         const parsedData = safeJsonParse(content);
-        
-        // RÉCUPÉRATION DES TOKENS GEMINI
         const usage = result.response.usageMetadata || {};
         const tokenData = {
             prompt: usage.promptTokenCount || 0,
@@ -188,19 +211,33 @@ async function getAiStructuredJson(settings, prompt, jsonSchema) {
         if (provider === 'openrouter') clientBaseUrl = 'https://openrouter.ai/api/v1';
 
         const client = new OpenAI({ apiKey: apiKey || "ollama-no-key", baseURL: clientBaseUrl });
-        
-        // OPENAI/OLLAMA : On convertit le schéma en minuscules
         const safeSchema = deepConvertTypesToLowercase(jsonSchema);
         const schemaStr = JSON.stringify(safeSchema, null, 2);
         
-        const enhancedPrompt = `${prompt}\n\nTu dois répondre STRICTEMENT avec un objet JSON valide qui respecte ce schéma:\n${schemaStr}`;
+        const enhancedUserPrompt = `${userPrompt}\n\nTu dois répondre STRICTEMENT avec un objet JSON valide qui respecte ce schéma:\n${schemaStr}`;
         
+        // Construction des messages avec cache_control
+        let messages = [];
+        if (provider === 'openrouter' || provider === 'openai') {
+            messages = [
+                { 
+                    role: "system", 
+                    content: [ { type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } } ] 
+                },
+                { role: "user", content: enhancedUserPrompt }
+            ];
+        } else {
+            messages = [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: enhancedUserPrompt }
+            ];
+        }
+
         const response = await client.chat.completions.create({
             model: modelName,
-            messages: [{ role: "user", content: enhancedPrompt }],
+            messages: messages,
             response_format: { type: "json_object" },
             max_tokens: 16000,
-            // OPTIONS SPÉCIFIQUES POUR OLLAMA : On force la fenêtre de contexte à 32k
             options: {
                 num_ctx: 32768,
                 num_predict: 8000
@@ -210,7 +247,6 @@ async function getAiStructuredJson(settings, prompt, jsonSchema) {
         let content = response.choices[0].message.content;
         const parsedData = safeJsonParse(content);
         
-        // RÉCUPÉRATION DES TOKENS OPENAI/OLLAMA
         const usage = response.usage || {};
         const tokenData = {
             prompt: usage.prompt_tokens || 0,
@@ -222,4 +258,4 @@ async function getAiStructuredJson(settings, prompt, jsonSchema) {
     }
 }
 
-module.exports = { getAiFunctionCalls, getAiStructuredJson };
+module.exports = { getAiFunctionCalls, getAiStructuredJson, safeJsonParse, deepConvertTypesToLowercase, convertGeminiToolsToOpenAI };
